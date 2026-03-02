@@ -6,7 +6,10 @@ import {
   doc, 
   updateDoc, 
   arrayUnion,
-  deleteDoc 
+  deleteDoc,
+  onSnapshot,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,7 +25,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 onSnapshot(collection(db, "bidang"), (snapshot) => {
     data = {};
@@ -36,9 +38,19 @@ onSnapshot(collection(db, "bidang"), (snapshot) => {
 
     renderBidang();
 
-    // 🔥 Tambahkan ini
-    if (bidangAktif && data[bidangAktif]) {
+    // 🔥 ambil dari localStorage
+    const savedBidang = localStorage.getItem("bidangAktif");
+    const savedDokter = localStorage.getItem("dokterAktif");
+
+    if (savedBidang && data[savedBidang]) {
+        bidangAktif = savedBidang;
         renderDokter();
+
+        if (savedDokter && data[savedBidang].dokter.includes(savedDokter)) {
+            dokterAktif = savedDokter;
+            document.getElementById("selectedDoctor").innerText = savedDokter;
+            loadDataDokter();
+        }
     }
 });
 
@@ -63,14 +75,21 @@ let dokterAktifId = null;
 
 function renderBidang() {
     const bidangList = document.getElementById("bidangList");
-    const form = bidangList.querySelector(".add-bidang-form");
+
+    // simpan form dulu
+    const form = document.createElement("li");
+    form.className = "add-bidang-form";
+    form.innerHTML = `
+        <input type="text" id="newBidang" placeholder="Tambah bidang...">
+        <button onclick="tambahBidang()">+</button>
+    `;
+
     bidangList.innerHTML = "";
 
     Object.keys(data).forEach(bidang => {
         const li = document.createElement("li");
         li.className = "list-item";
 
-        // klik baris = pilih bidang
         li.onclick = () => pilihBidang(bidang);
 
         li.innerHTML = `
@@ -83,15 +102,13 @@ function renderBidang() {
             </div>
         `;
 
-        // tombol edit
         li.querySelector(".btn-edit").onclick = (e) => {
-            e.stopPropagation(); // penting!
+            e.stopPropagation();
             editBidang(bidang);
         };
 
-        // tombol hapus
         li.querySelector(".btn-remove").onclick = (e) => {
-            e.stopPropagation(); // penting!
+            e.stopPropagation();
             showDelete('bidang', bidang);
         };
 
@@ -119,9 +136,12 @@ function toggleBidang() {
 }
 
 
-// PILIH BIDANG
 function pilihBidang(bidang) {
     bidangAktif = bidang;
+
+    // simpan ke localStorage
+    localStorage.setItem("bidangAktif", bidang);
+
     renderDokter();
     document.getElementById("bidangList").style.display = "none";
 }
@@ -170,9 +190,11 @@ function renderDokter() {
 function pilihDokter(nama) {
     dokterAktif = nama;
 
-    document.querySelector("h2").innerText = nama;
+    // simpan ke localStorage
+    localStorage.setItem("dokterAktif", nama);
 
-    // Kalau ada tabel data
+    document.getElementById("selectedDoctor").innerText = nama;
+
     loadDataDokter();
 }
 
@@ -281,7 +303,7 @@ async function tambahPeserta(dataPeserta) {
     if (!dokterAktifId) return alert("Pilih dokter dulu!");
 
     await addDoc(
-        collection(db, "bidang", bidangAktifId, "dokter", dokterAktifId, "peserta"),
+        collection(db, "bidang", data[bidangAktif].id, "dokter", dokterAktif, "peserta"),
         dataPeserta
     );
 }
@@ -298,18 +320,16 @@ document.getElementById("uploadExcel").addEventListener("change", async (e) => {
         const json = XLSX.utils.sheet_to_json(sheet);
 
         for (let row of json) {
-            await addDoc(
-                collection(db, "bidang", bidangAktifId, "dokter", dokterAktifId, "peserta"),
-                {
-                    nama: row.Nama,
-                    statusPakan: row.Status,
-                    jamPakan: row.Jam,
-                    sisaPakan: row.Sisa,
-                    persen: row.Persen,
-                    gram: row.Gram
-                }
-            );
-        }
+            await addDoc(collection(db, "peserta"), {
+                bidang: bidangAktif,
+                dokter: dokterAktif,
+                statusPakan: row.Status,
+                jamPakan: row.Jam,
+                sisaPakan: row.Sisa,
+                persen: row.Persen,
+                gram: row.Gram
+            });
+                    }
 
         alert("Import berhasil!");
     };
@@ -326,6 +346,55 @@ document.querySelector(".btn-add").addEventListener("click", () => {
 
     document.getElementById("uploadExcel").click();
 });
+
+let unsubscribePeserta = null;
+
+function loadDataDokter() {
+
+    if (!bidangAktif || !dokterAktif) return;
+
+    const tableBody = document.getElementById("tableBody");
+    tableBody.innerHTML = "";
+
+    // hentikan listener lama kalau ada
+    if (unsubscribePeserta) {
+        unsubscribePeserta();
+    }
+
+    const q = query(
+        collection(db, "peserta"),
+        where("bidang", "==", bidangAktif),
+        where("dokter", "==", dokterAktif)
+    );
+
+    unsubscribePeserta = onSnapshot(q, (snapshot) => {
+
+        tableBody.innerHTML = "";
+
+        if (snapshot.empty) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5">Belum ada data</td>
+                </tr>
+            `;
+            return;
+        }
+
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+
+            tableBody.innerHTML += `
+                <tr>
+                    <td>${d.statusPakan || "-"}</td>
+                    <td>${d.jamPakan || "-"}</td>
+                    <td>${d.sisaPakan || "-"}</td>
+                    <td>${d.persen || "-"}</td>
+                    <td>${d.gram || "-"}</td>
+                </tr>
+            `;
+        });
+    });
+}
 
 
 window.toggleBidang = toggleBidang;
