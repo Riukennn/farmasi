@@ -87,8 +87,12 @@ function renderBidang() {
     bidangList.innerHTML = "";
 
     Object.keys(data).forEach(bidang => {
-        const li = document.createElement("li");
-        li.className = "list-item";
+    const li = document.createElement("li");
+    li.className = "list-item";
+
+    if (bidang === bidangAktif) {
+        li.classList.add("activeid");
+    }
 
         li.onclick = () => pilihBidang(bidang);
 
@@ -138,11 +142,14 @@ function toggleBidang() {
 
 function pilihBidang(bidang) {
     bidangAktif = bidang;
+    dokterAktif = null; // reset dokter
 
-    // simpan ke localStorage
     localStorage.setItem("bidangAktif", bidang);
+    localStorage.removeItem("dokterAktif");
 
+    renderBidang();   // 🔥 refresh supaya active muncul
     renderDokter();
+
     document.getElementById("bidangList").style.display = "none";
 }
 
@@ -156,10 +163,13 @@ function renderDokter() {
         return;
     }
 
-    data[bidangAktif].dokter.forEach((nama, index) => {
-        const li = document.createElement("li");
-        li.className = "list-item";
+data[bidangAktif].dokter.forEach((nama, index) => {
+    const li = document.createElement("li");
+    li.className = "list-item";
 
+    if (nama === dokterAktif) {
+        li.classList.add("active");
+    }
         li.innerHTML = `
             <div class="text-wrapper">
                 <span class="scroll-text">${nama}</span>
@@ -190,11 +200,11 @@ function renderDokter() {
 function pilihDokter(nama) {
     dokterAktif = nama;
 
-    // simpan ke localStorage
     localStorage.setItem("dokterAktif", nama);
 
     document.getElementById("selectedDoctor").innerText = nama;
 
+    renderDokter();  // 🔥 refresh supaya active muncul
     loadDataDokter();
 }
 
@@ -317,17 +327,17 @@ document.getElementById("uploadExcel").addEventListener("change", async (e) => {
         const workbook = XLSX.read(data, { type: "array" });
 
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
+        const json = XLSX.utils.sheet_to_json(sheet, {
+            raw: false
+        });
 
         for (let row of json) {
-            await addDoc(collection(db, "peserta"), {
+           await addDoc(collection(db, "peserta"), {
                 bidang: bidangAktif,
                 dokter: dokterAktif,
-                statusPakan: row.Status,
-                jamPakan: row.Jam,
-                sisaPakan: row.Sisa,
-                persen: row.Persen,
-                gram: row.Gram
+                namaPeserta: row.Nama,
+                jamPelaksanaan: row.Jam,
+                idPeserta: row.ID
             });
                     }
 
@@ -356,7 +366,7 @@ function loadDataDokter() {
     const tableBody = document.getElementById("tableBody");
     tableBody.innerHTML = "";
 
-    // hentikan listener lama kalau ada
+    // hentikan listener lama
     if (unsubscribePeserta) {
         unsubscribePeserta();
     }
@@ -374,7 +384,7 @@ function loadDataDokter() {
         if (snapshot.empty) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="5">Belum ada data</td>
+                    <td colspan="3">Belum ada data</td>
                 </tr>
             `;
             return;
@@ -385,11 +395,9 @@ function loadDataDokter() {
 
             tableBody.innerHTML += `
                 <tr>
-                    <td>${d.statusPakan || "-"}</td>
-                    <td>${d.jamPakan || "-"}</td>
-                    <td>${d.sisaPakan || "-"}</td>
-                    <td>${d.persen || "-"}</td>
-                    <td>${d.gram || "-"}</td>
+                    <td>${d.namaPeserta || "-"}</td>
+                    <td>${d.jamPelaksanaan || "-"}</td>
+                    <td>${d.idPeserta || "-"}</td>
                 </tr>
             `;
         });
