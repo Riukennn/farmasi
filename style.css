@@ -17,7 +17,7 @@ body {
 
 /* SIDEBAR */
 .sidebar {
-    width: 260px;
+    width: 320px;
     background: #d81b60;
     color: white;
     padding: 20px;
@@ -42,6 +42,7 @@ body {
     list-style: none;
     height: 80%;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .doctor-list li {
@@ -401,4 +402,5 @@ body {
     gap: 10px;
     padding: 10px 5px;
     border-bottom: 1px solid rgba(255,255,255,0.2);
+
 }
