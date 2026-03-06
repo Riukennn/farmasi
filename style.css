@@ -42,7 +42,7 @@ body {
     list-style: none;
     height: 80%;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: hidden; /* 🔥 hilangkan scroll horizontal */
 }
 
 .doctor-list li {
@@ -402,5 +402,26 @@ body {
     gap: 10px;
     padding: 10px 5px;
     border-bottom: 1px solid rgba(255,255,255,0.2);
+}
 
+.list-item.active {
+    background: rgba(255,255,255,0.25);   /* transparan */
+    border-left: 4px solid #ffffff;       /* garis indikator */
+    transform: scale(1.01);
+}
+
+/* 🔵 BIDANG AKTIF */
+.list-item.activeid {
+    background-color: #2563eb;
+    color: white;
+}
+
+.list-item.active .btn-edit,
+.list-item.active .btn-remove {
+    color: white;
+}
+
+.list-item:hover {
+    background-color: #e5e7eb;
+    cursor: pointer;
 }
